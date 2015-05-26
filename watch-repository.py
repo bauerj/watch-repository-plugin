@@ -62,6 +62,8 @@ class GithubRepo:
         if 'ETag' in r.headers:
             this.etags[url] = r.headers['ETag']
         print("fetched " + url + ", status: %i" % r.status_code)
+        if "X-RateLimit-Remaining" in r.headers:
+            print("RateLimit Remaining: " + r.headers["X-RateLimit-Remaining"])
         if r.status_code == 304:
             return {}
         return json.loads(r.text or r.content)
