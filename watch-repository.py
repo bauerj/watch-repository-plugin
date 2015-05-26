@@ -13,34 +13,37 @@ from willie.logger import get_logger
 import requests
 import json
 import datetime
+import dateutil.parser
 
 LOGGER = get_logger(__name__)
 
-INTERVAL = 60 * 1  # seconds between checking for new updates
+INTERVAL = 60 * 5  # seconds between checking for new updates
 repo = "facebook/hhvm"
 channel = "#jreuab"
 
 
-@interval(INTERVAL)
-def read_repo(bot):
-    if (not 'watch-repository' in bot.memory):
-        bot.memory['watch-repository'] = GithubRepo(repo)
-    w = bot.memory['watch-repository']
-    commits = w.getNew("commits")
-    for i in commits:
-        msg = "Neuer Commit in " + repo + " von "
-        msg += i["committer"]["name"] + ": "
-        msg += i["message"]
-        msg += "(" + i["html_url"] + ")"
-        bot.msg(channel, msg)
+class RepoManager:
+    def _repo_fetch(this, bot, c):
+        """Fetch all repositories that have no webhook immediately"""
+        this.read_repo(bot)
 
-    issues = w.getNew("issues")
-    for i in issues:
-        msg = "Neuer Issue in " + repo + " von "
-        msg += i["user"]["login"] + ": "
-        msg += i["title"]
-        msg += "(" + i["html_url"] + ")"
-        bot.msg(channel, msg)
+    @interval(INTERVAL)
+    def read_repo(this, bot):
+        if 'watch-repository' not in bot.memory:
+            bot.memory['watch-repository'] = GithubRepo(repo)
+        w = bot.memory['watch-repository']
+        for type in {"commits", "pulls", "issues"}:
+            all = w.getNew(type)
+            for i in all:
+                bot.msg(channel, this.announce(type, i))
+
+    def announce(this, type, o):
+        name = {'commits': 'Commit', 'issues': 'Bug-Report', 'pulls': 'Pull-Request'}
+        msg = "Neuer " + name[type] + " in " + repo + " von "
+        msg += o["user"]["login"] or o["committer"]["name"] or "???"
+        msg += ": " + o["title"] or o["message"]
+        msg += "(" + o["html_url"] + ")"
+        return msg
 
 
 class GithubRepo:
@@ -69,18 +72,26 @@ class GithubRepo:
         return json.loads(r.text or r.content)
 
     def getNew(this, what):
-        if what in this.last:
-            response = this.fetch("https://api.github.com/repos/" + this.name + "/" + what + "?since=" + this.last[what])
-        else:
-            response = this.fetch("https://api.github.com/repos/" + this.name + "/" + what)
-        if what == 'commits' and len(response) > 0 and hasattr(response[0],
-                                                               'committer' and hasattr(response[0].commiter, 'date')):
-            this.last[what] = response[0].committer.date
-        elif len(response) > 0 and hasattr(response[0], 'created_at'):
-            this.last[what] = response[0].created_at
-        else:
-            this.last[what] = this.getISOTime()
+        response = this.fetch("https://api.github.com/repos/" + this.name + "/" + what)
+
+        # use list comprehension to filter
+        response = [i for i in response if this.toTimestamp(this.getDate(i)) > this.toTimestamp(this.last[what])]
+
+        if len(response) > 0:
+            this.last[what] = this.getDate(response[0])
         return response
 
+    # ISO8601 or something like that
     def getISOTime(this):
         return datetime.datetime.utcnow().isoformat() + "Z"
+
+    def toTimestamp(this, item):
+        return dateutil.parser.parse(item)
+
+    def getDate(this, item):
+        if hasattr(item, 'committer' and hasattr(item.commiter, 'date')):
+            return item.committer.date
+        elif hasattr(item, 'created_at'):
+            return item.created_at
+        else:
+            return this.getISOTime()
