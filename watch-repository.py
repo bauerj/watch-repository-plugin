@@ -17,7 +17,7 @@ import dateutil.parser
 
 LOGGER = get_logger(__name__)
 
-INTERVAL = 60 * 1  # seconds between checking for new updates
+INTERVAL = 60 * 2  # seconds between checking for new updates
 repo = "facebook/hhvm"
 channel = "#jreuab"
 
@@ -40,8 +40,8 @@ def read_repo(bot):
 def announce(type, o):
     name = {'commits': 'Commit', 'issues': 'Bug-Report', 'pulls': 'Pull-Request'}
     msg = "Neuer " + name[type] + " in " + repo + " von "
-    msg += o["user"]["login"] or o["committer"]["name"] or "???"
-    msg += ": " + o["title"] or o["message"]
+    msg += o.get("user", {}).get("login", None) or o.get("committer", {}).get("name", None) or "???"
+    msg += ": " + o.get("title", None) or o.get("message", None)
     msg += "(" + o["html_url"] + ")"
     return msg
 
@@ -89,9 +89,4 @@ class GithubRepo:
         return dateutil.parser.parse(item)
 
     def getDate(this, item):
-        if hasattr(item, 'committer' and hasattr(item.commiter, 'date')):
-            return item.committer.date
-        elif hasattr(item, 'created_at'):
-            return item.created_at
-        else:
-            return this.getISOTime()
+        return item.get("committer", {}).get("date", None) or item.get("created_at", None) or this.getISOTime()
