@@ -17,7 +17,7 @@ import dateutil.parser
 
 LOGGER = get_logger(__name__)
 
-INTERVAL = 60 * 5  # seconds between checking for new updates
+INTERVAL = 60 * 1  # seconds between checking for new updates
 repo = "facebook/hhvm"
 channel = "#jreuab"
 
@@ -25,25 +25,25 @@ channel = "#jreuab"
 class RepoManager:
     def _repo_fetch(this, bot, c):
         """Fetch all repositories that have no webhook immediately"""
-        this.read_repo(bot)
+        read_repo(bot)
 
-    @interval(INTERVAL)
-    def read_repo(this, bot):
-        if 'watch-repository' not in bot.memory:
-            bot.memory['watch-repository'] = GithubRepo(repo)
-        w = bot.memory['watch-repository']
-        for type in {"commits", "pulls", "issues"}:
-            all = w.getNew(type)
-            for i in all:
-                bot.msg(channel, this.announce(type, i))
+@interval(INTERVAL)
+def read_repo(bot):
+    if 'watch-repository' not in bot.memory:
+        bot.memory['watch-repository'] = GithubRepo(repo)
+    w = bot.memory['watch-repository']
+    for type in {"commits", "pulls", "issues"}:
+        all = w.getNew(type)
+        for i in all:
+            bot.msg(channel, announce(type, i))
 
-    def announce(this, type, o):
-        name = {'commits': 'Commit', 'issues': 'Bug-Report', 'pulls': 'Pull-Request'}
-        msg = "Neuer " + name[type] + " in " + repo + " von "
-        msg += o["user"]["login"] or o["committer"]["name"] or "???"
-        msg += ": " + o["title"] or o["message"]
-        msg += "(" + o["html_url"] + ")"
-        return msg
+def announce(type, o):
+    name = {'commits': 'Commit', 'issues': 'Bug-Report', 'pulls': 'Pull-Request'}
+    msg = "Neuer " + name[type] + " in " + repo + " von "
+    msg += o["user"]["login"] or o["committer"]["name"] or "???"
+    msg += ": " + o["title"] or o["message"]
+    msg += "(" + o["html_url"] + ")"
+    return msg
 
 
 class GithubRepo:
