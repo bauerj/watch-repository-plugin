@@ -215,7 +215,7 @@ def announce(type, o, repo):
     name = {'commits': 'Commit', 'issues': 'Bug-Report', 'pull': 'Pull-Request'}
     if "pull_request" in o:
         type = "pull"
-    msg = "Neuer " + name[type] + " in " + formatting.bold(repo) + " von "
+    msg = "Neuer " + name[type] + " in " + repo + " von "
     msg += (o.get("user", {}).get("login", None) or o.get("commit", {}).get("author", {}).get("name", None) or "???")
     msg += ": " + formatting.color((o.get("title", None) or o.get("commit", {}).get("message", None) or "?"), "white", "black")
     msg += "( " + o["html_url"] + " )"
